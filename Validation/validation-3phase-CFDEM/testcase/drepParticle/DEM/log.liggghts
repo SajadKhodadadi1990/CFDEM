@@ -1,0 +1,375 @@
+thermo_log  ../DEM/post/thermo.txt
+
+atom_style      granular
+atom_modify     map array
+communicate     single vel yes
+
+boundary        f f f
+newton          off
+
+units           si
+processors      2 2 1
+
+region          reg block 0. 1. 0. 1. 0. 4. units box
+create_box      1 reg
+Created orthogonal box = (0 0 0) to (1 1 4)
+  2 by 2 by 1 MPI processor grid
+
+neighbor        0.3 bin
+neigh_modify    delay 0 binsize 0.01
+
+
+# Material properties required for granular pair styles
+fix             m1 all property/global youngsModulus peratomtype 5.e7
+fix             m2 all property/global poissonsRatio peratomtype 0.45
+fix             m3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix             m4 all property/global coefficientFriction peratomtypepair 1 0.5
+
+# pair style
+pair_style      gran model hertz tangential history #Hertzian without cohesion
+pair_coeff      * *
+
+# timestep, gravity
+timestep        0.00003
+
+fix             gravi all gravity 9.81 vector 0.0 0.0 -1.0
+
+# walls
+fix     xwalls1 all wall/gran model hertz tangential history primitive type 1 xplane 0.
+fix     xwalls2 all wall/gran model hertz tangential history primitive type 1 xplane 1.
+fix     ywalls1 all wall/gran model hertz tangential history primitive type 1 yplane 0.
+fix     ywalls2 all wall/gran model hertz tangential history primitive type 1 yplane 1.
+fix     zwalls1 all wall/gran model hertz tangential history primitive type 1 zplane 0.
+fix     zwalls2 all wall/gran model hertz tangential history primitive type 1 zplane 4.
+
+# cfd coupling
+fix     cfd  all couple/cfd couple_every 10 mpi
+nevery as specified in LIGGGHTS is overriden by calling external program (/home/user/CFDEM/LIGGGHTS/src/cfd_datacoupling_mpi.cpp:56)
+fix     cfd2 all couple/cfd/force/implicit #z
+
+
+# create single partciles
+create_atoms 1 single 0.002 0.002 0.005  units box
+Created 1 atoms
+#create_atoms 1 single 0.002 0.002 0.004 units box
+set atom 1 diameter 0.0001 density 2500 vx 0 vy 0 vz 0
+  1 settings made for diameter
+  1 settings made for density
+  1 settings made for vx
+  1 settings made for vy
+  1 settings made for vz
+#set atom 2 diameter 0.0001 density 2500 vx 0 vy 0 vz 0
+
+variable        vx1 equal vx[1]
+variable        vy1 equal vy[1]
+variable        vz1 equal vz[1]
+#variable        vx2 equal vx[2]
+#variable        vy2 equal vy[2]
+#variable        vz2 equal vz[2]
+variable        x1 equal x[1]
+variable        y1 equal y[1]
+variable        z1 equal z[1]
+#variable        x2 equal x[2]
+#variable        y2 equal y[2]
+#variable        z2 equal z[2]
+variable        time equal step*dt
+
+fix             extra1 all print 1 "${time} ${vx1} ${vy1} ${vz1}" file ../DEM/post/velocity_particle_1.txt title "#" screen no
+#fix             extra2 all print 1 "${time} ${vx2} ${vy2} ${vz2}" file ../DEM/post/velocity_particle_2.txt title "#" screen no
+fix             extra3 all print 1 "${time} ${x1}  ${y1}  ${z1}"  file ../DEM/post/position_particle_1.txt title "#" screen no
+#fix             extra4 all print 1 "${time} ${x2}  ${y2}  ${z2}"  file ../DEM/post/position_particle_2.txt title "#" screen no
+
+
+# apply nve integration to all particles that are inserted as single particles
+fix             integr all nve/sphere #wenn das ausgeblendet, dann kein vel update
+
+# screen output
+compute         rke all erotate/sphere
+thermo_style    custom step atoms ke c_rke vol
+thermo          1000
+thermo_modify   lost ignore norm no
+compute_modify  thermo_temp dynamic yes
+
+# insert the first particles so that dump is not empty
+dump            dmp all custom 100 ../DEM/post/dump.liggghts_run id type x y z vx vy vz fx fy fz omegax omegay omegaz radius
+
+#force : f_couple_cfd[0] f_couple_cfd[1] f_couple_cfd[2]
+#node : f_couple_cfd[6]
+#cell id : f_couple_cfd[7]
+
+run             1
+Memory usage per processor = 33.6972 Mbytes
+Step Atoms KinEng rke Volume 
+       0        1            0            0            4 
+       1        1            0            0            4 
+Loop time of 0.000104354 on 4 procs for 1 steps with 1 atoms
+Max time of 0.000104709 on 4 procs for 1 steps with 1 atoms
+
+Pair  time (%) = 5.55003e-07 (0.531846)
+Max Pair time (ib) = 1.33e-06 (139.639)
+Neigh time (%) = 0 (0)
+Max Neigh time (ib) = 0 (0)
+Comm  time (%) = 4.6475e-06 (4.45359)
+Max Comm time (ib) = 4.79e-06 (3.06616)
+Outpt time (%) = 1.65825e-05 (15.8906)
+Max Outpt time (ib) = 1.817e-05 (9.5733)
+Other time (%) = 8.2569e-05 (79.1239)
+Max Other time (ib) = 8.7039e-05 (5.41366)
+
+Nlocal:    0.25 ave 1 max 0 min
+Histogram: 3 0 0 0 0 0 0 0 0 1
+Nghost:    0 ave 0 max 0 min
+Histogram: 4 0 0 0 0 0 0 0 0 0
+Neighs:    0 ave 0 max 0 min
+Histogram: 4 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 0
+Ave neighs/atom = 0
+Neighbor list builds = 0
+Dangerous builds = 0
+
+run 50    
+Memory usage per processor = 33.6972 Mbytes
+Step Atoms KinEng rke Volume 
+       1        1            0            0            4 
+CFD Coupling established at step10
+CFD Coupling established at step20
+CFD Coupling established at step30
+CFD Coupling established at step40
+CFD Coupling established at step50
+      51        1            0            0            4 
+Loop time of 0.00114246 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00114305 on 4 procs for 50 steps with 1 atoms
+
+Pair  time (%) = 4.99999e-06 (0.437652)
+Max Pair time (ib) = 6.14997e-06 (22.9997)
+Neigh time (%) = 0 (0)
+Max Neigh time (ib) = 0 (0)
+Comm  time (%) = 1.2755e-05 (1.11645)
+Max Comm time (ib) = 1.493e-05 (17.0521)
+Outpt time (%) = 7.96e-06 (0.696743)
+Max Outpt time (ib) = 8.62e-06 (8.29143)
+Other time (%) = 0.00111674 (97.7492)
+Max Other time (ib) = 0.00111945 (0.242448)
+
+Nlocal:    0.25 ave 1 max 0 min
+Histogram: 3 0 0 0 0 0 0 0 0 1
+Nghost:    0 ave 0 max 0 min
+Histogram: 4 0 0 0 0 0 0 0 0 0
+Neighs:    0 ave 0 max 0 min
+Histogram: 4 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 0
+Ave neighs/atom = 0
+Neighbor list builds = 0
+Dangerous builds = 0
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+      51        1            0            0            4 
+CFD Coupling established at step60
+CFD Coupling established at step70
+CFD Coupling established at step80
+CFD Coupling established at step90
+CFD Coupling established at step100
+     101        1            0            0            4 
+Loop time of 0.0011518 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00115193 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     101        1            0            0            4 
+CFD Coupling established at step110
+CFD Coupling established at step120
+CFD Coupling established at step130
+CFD Coupling established at step140
+CFD Coupling established at step150
+     151        1            0            0            4 
+Loop time of 0.00103458 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00103472 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     151        1            0            0            4 
+CFD Coupling established at step160
+CFD Coupling established at step170
+CFD Coupling established at step180
+CFD Coupling established at step190
+CFD Coupling established at step200
+     201        1            0            0            4 
+Loop time of 0.00116865 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00116883 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     201        1            0            0            4 
+CFD Coupling established at step210
+CFD Coupling established at step220
+CFD Coupling established at step230
+CFD Coupling established at step240
+CFD Coupling established at step250
+     251        1            0            0            4 
+Loop time of 0.00108315 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00108367 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     251        1            0            0            4 
+CFD Coupling established at step260
+CFD Coupling established at step270
+CFD Coupling established at step280
+CFD Coupling established at step290
+CFD Coupling established at step300
+     301        1            0            0            4 
+Loop time of 0.00118184 on 4 procs for 50 steps with 1 atoms
+Max time of 0.0011822 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     301        1            0            0            4 
+CFD Coupling established at step310
+CFD Coupling established at step320
+CFD Coupling established at step330
+CFD Coupling established at step340
+CFD Coupling established at step350
+     351        1            0            0            4 
+Loop time of 0.00114242 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00114254 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     351        1            0            0            4 
+CFD Coupling established at step360
+CFD Coupling established at step370
+CFD Coupling established at step380
+CFD Coupling established at step390
+CFD Coupling established at step400
+     401        1            0            0            4 
+Loop time of 0.00116734 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00116757 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     401        1            0            0            4 
+CFD Coupling established at step410
+CFD Coupling established at step420
+CFD Coupling established at step430
+CFD Coupling established at step440
+CFD Coupling established at step450
+     451        1            0            0            4 
+Loop time of 0.00108747 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00108759 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     451        1            0            0            4 
+CFD Coupling established at step460
+CFD Coupling established at step470
+CFD Coupling established at step480
+CFD Coupling established at step490
+CFD Coupling established at step500
+     501        1            0            0            4 
+Loop time of 0.00118269 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00118273 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     501        1            0            0            4 
+CFD Coupling established at step510
+CFD Coupling established at step520
+CFD Coupling established at step530
+CFD Coupling established at step540
+CFD Coupling established at step550
+     551        1            0            0            4 
+Loop time of 0.00141327 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00141334 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     551        1            0            0            4 
+CFD Coupling established at step560
+CFD Coupling established at step570
+CFD Coupling established at step580
+CFD Coupling established at step590
+CFD Coupling established at step600
+     601        1            0            0            4 
+Loop time of 0.00116724 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00116759 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     601        1            0            0            4 
+CFD Coupling established at step610
+CFD Coupling established at step620
+CFD Coupling established at step630
+CFD Coupling established at step640
+CFD Coupling established at step650
+     651        1            0            0            4 
+Loop time of 0.0011282 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00112843 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     651        1            0            0            4 
+CFD Coupling established at step660
+CFD Coupling established at step670
+CFD Coupling established at step680
+CFD Coupling established at step690
+CFD Coupling established at step700
+     701        1            0            0            4 
+Loop time of 0.00121301 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00121317 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     701        1            0            0            4 
+CFD Coupling established at step710
+CFD Coupling established at step720
+CFD Coupling established at step730
+CFD Coupling established at step740
+CFD Coupling established at step750
+     751        1            0            0            4 
+Loop time of 0.00116248 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00116256 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     751        1            0            0            4 
+CFD Coupling established at step760
+CFD Coupling established at step770
+CFD Coupling established at step780
+CFD Coupling established at step790
+CFD Coupling established at step800
+     801        1            0            0            4 
+Loop time of 0.0012558 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00125654 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     801        1            0            0            4 
+CFD Coupling established at step810
+CFD Coupling established at step820
+CFD Coupling established at step830
+CFD Coupling established at step840
+CFD Coupling established at step850
+     851        1            0            0            4 
+Loop time of 0.00111474 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00111485 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     851        1            0            0            4 
+CFD Coupling established at step860
+CFD Coupling established at step870
+CFD Coupling established at step880
+CFD Coupling established at step890
+CFD Coupling established at step900
+     901        1            0            0            4 
+Loop time of 0.00129011 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00129019 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     901        1            0            0            4 
+CFD Coupling established at step910
+CFD Coupling established at step920
+CFD Coupling established at step930
+CFD Coupling established at step940
+CFD Coupling established at step950
+     951        1            0            0            4 
+Loop time of 0.00104917 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00104943 on 4 procs for 50 steps with 1 atoms
+run 50 pre no post no
+Step Atoms KinEng rke Volume 
+     951        1            0            0            4 
+CFD Coupling established at step960
+CFD Coupling established at step970
+CFD Coupling established at step980
+CFD Coupling established at step990
+CFD Coupling established at step1000
+    1000        1            0            0            4 
+    1001        1            0            0            4 
+Loop time of 0.00121694 on 4 procs for 50 steps with 1 atoms
+Max time of 0.00121703 on 4 procs for 50 steps with 1 atoms
