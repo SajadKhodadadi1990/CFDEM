@@ -3,4 +3,4 @@
 
 # Citation
 
-Sajad khodadadi. (2024). SajadKhodadadi1990/CFDEM: CFDEM (v1.0). Zenodo. [![site](https://doi.org/10.5281/zenodo.1093459)
+Sajad khodadadi. (2024). SajadKhodadadi1990/CFDEM: CFDEM (v1.0). Zenodo. https://doi.org/10.5281/zenodo.1093459
